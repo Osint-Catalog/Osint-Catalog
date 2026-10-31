@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#050505">
+<title>whoaim</title>
+<style>
+:root{--bg:#050505;--panel:#0b0b0b;--line:#383838;--muted:#888;--text:#e8e8e8;--accent:#fff;--green:#a9d8bd}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{background:#050505;background-image:radial-gradient(#171717 .55px,transparent .7px);background-size:28px 28px;background-position:0 0}
+button,input{font:inherit;color:inherit}button{background:#111;border:1px solid #303030;border-radius:8px;padding:9px 12px;cursor:pointer}button:active{background:#242424}button:focus-visible,input:focus-visible{outline:1px solid #aaa;outline-offset:2px}
+.top{height:58px;display:flex;align-items:center;gap:16px;padding:0 18px;background:#050505;border-bottom:1px solid #202020;position:relative;z-index:5}
+.brand{font-weight:600;letter-spacing:.10em;font-size:17px;text-transform:lowercase;white-space:nowrap;border-right:1px solid #444;padding-right:20px}.brand i{font-style:normal;color:#777}
+.search{flex:1;min-width:60px;max-width:520px;background:transparent;border:0;border-radius:0;padding:10px 12px}
+.search input{width:100%;background:transparent;border:0;outline:0}
+.topmeta{font-size:11px;color:#777;white-space:nowrap}
+.main{height:calc(100% - 58px);position:relative}
+#viewport{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab}
+#viewport.dragging{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+#graph{overflow:visible;display:block}
+.edge{fill:none;stroke:#a0a0a0;stroke-width:1.15;opacity:.82}
+.edge.soft{stroke:#777;stroke-width:1;opacity:.72}
+.node{cursor:pointer}
+.node rect{fill:transparent;stroke:transparent;stroke-width:0}
+.node:hover rect,.node.selected rect{stroke:transparent;fill:transparent}
+.node.root rect{fill:transparent;stroke:transparent;stroke-width:0}
+.node.category rect{fill:transparent;stroke:transparent}
+.node.sub rect{fill:transparent;stroke:transparent}
+.node.tool rect{fill:transparent;stroke:transparent}
+.node.sim rect{stroke:#777;stroke-dasharray:4 3}
+.node text{fill:#e1e1e1;font-size:12px;font-weight:400;text-anchor:start;dominant-baseline:middle;pointer-events:none}
+.node .subtext{display:none}
+.node .dot{fill:#e4e4e4}
+.node .arrow{fill:#777;font-size:17px}
+.toolbar{position:absolute;left:14px;bottom:14px;z-index:4;display:flex;gap:7px;align-items:center;background:#080808eF;border:1px solid #242424;border-radius:22px;padding:7px 10px;box-shadow:none}
+.toolbar button{width:40px;height:38px;padding:0;font-size:18px}
+.zoomlabel{font-size:11px;color:#888;min-width:42px;text-align:center}
+.hint{display:none}
+.count{position:absolute;right:16px;bottom:20px;top:auto;color:#888;font-size:11px;background:#080808;border:1px solid #242424;padding:10px 14px;border-radius:22px}
+.panel{position:absolute;right:14px;top:14px;bottom:68px;width:min(370px,calc(100% - 28px));z-index:6;background:#090909f5;border:1px solid #383838;border-radius:12px;box-shadow:0 15px 50px #000b;display:none;flex-direction:column;overflow:hidden}
+.panel.open{display:flex}
+.panelhead{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid #292929}
+.panelhead small{color:#888;letter-spacing:.12em;text-transform:uppercase;font-size:10px}
+.panelbody{padding:16px;overflow:auto}
+.panel h2{font-size:19px;margin:0 0 6px;font-weight:650}
+.pill{display:inline-block;border:1px solid #555;border-radius:20px;padding:3px 8px;color:#aaa;font-size:10px;margin:6px 0 13px}
+.panel p{color:#bcbcbc;margin:8px 0 14px}
+.panel h3{font-size:11px;letter-spacing:.12em;color:#888;text-transform:uppercase;margin:18px 0 8px}
+.scenario{white-space:pre-wrap;background:#111;border:1px solid #292929;border-radius:8px;padding:12px;color:#ddd;font-size:13px}
+.field{display:flex;gap:6px;margin-top:10px}.field input{flex:1;min-width:0;background:#111;border:1px solid #333;border-radius:7px;padding:9px}
+.output{font:12px/1.5 ui-monospace,monospace;color:#b8d9c5;white-space:pre-wrap;background:#050505;border:1px solid #242424;border-radius:8px;padding:10px;margin-top:10px;min-height:42px}
+.close{font-size:18px;line-height:1;padding:5px 9px}
+.legend{display:none}
+.legend b{color:#ddd;font-weight:500}
+.mobiletip{display:none}
+@media(max-width:650px){.top{height:54px;padding:0 9px;gap:7px}.brand{font-size:14px;padding-right:10px}.topmeta{display:none}.search{padding:9px}.main{height:calc(100% - 54px)}.panel{top:auto;left:8px;right:8px;bottom:64px;width:auto;max-height:58%;}.toolbar{left:8px;bottom:8px;gap:4px;padding:5px 8px}.toolbar button{width:36px;height:36px}.count{right:8px;bottom:12px}.mobiletip{display:inline}.node text{font-size:13px}}
+</style>
+</head>
+<body>
+<header class="top">
+ <div class="brand">whoaim<i>.</i></div>
+ <div class="search"><input id="search" placeholder="Поиск по каталогу..." autocomplete="off"></div>
+ <div class="topmeta">LOCAL GRAPH · RU</div>
+</header>
+<main class="main">
+ <div id="viewport"><div id="world"><svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
+ <div class="hint">Перетаскивай фон · нажми на узел, чтобы раскрыть следующий уровень</div>
+ <div class="count" id="count">загрузка каталога</div>
+ <div class="legend"><b>●</b> раздел &nbsp; <b>○</b> инструмент &nbsp; <b>⋯</b> учебная симуляция</div>
+ <div class="toolbar">
+  <button id="minus" title="Уменьшить">−</button><span class="zoomlabel" id="zoomlabel">100%</span><button id="plus" title="Увеличить">+</button>
+  <button id="fit" title="Вписать граф">⌗</button><button id="home" title="В начало">↺</button>
+  <button id="closePanel" title="Закрыть панель">×</button>
+ </div>
+ <aside class="panel" id="panel">
+  <div class="panelhead"><small id="panelkind">инструмент</small><button class="close" id="xpanel">×</button></div>
+  <div class="panelbody">
+   <h2 id="paneltitle">Выбери узел</h2><div class="pill" id="paneltag">WHOaim module</div>
+   <p id="paneldesc">Нажми на категорию, затем на подкатегорию или инструмент.</p>
+   <h3>Сценарий работы</h3><div class="scenario" id="scenario">Сценарий появится здесь.</div>
+   <div id="inputarea"></div><div class="output" id="output">Ожидание действия…</div>
+  </div>
+ </aside>
+</main>
+<script>
+const data = [
+["Поиск и мониторинг","Публичные источники",[
+["План OSINT-поиска","Сформировать план поиска по открытым и законным источникам → определить вопрос → выбрать первичные источники → записать дату и надёжность каждого результата.","OSINT"],
+["Проверка публичного URL","Вставить публичный адрес → разобрать структуру URL локально → отметить параметры и редиректные признаки → сохранить заметку без автоматического перехода.","LOCAL"],
+["Архив источников","Добавить заголовок, URL, дату и автора → сформировать карточку источника → отметить ограничения и уровень доверия.","LOCAL"],
+["Мониторинг упоминаний — план","Определить ключевые слова для собственного бренда → выбрать публичные поисковые системы вручную → завести журнал изменений и дату проверки.","OSINT"],
+["Проверка фактов","Разбить утверждение на проверяемые части → найти первичные подтверждения → сопоставить независимые источники → отметить неизвестное.","OSINT"]
+]],
+["Люди и контакты","Защита персональных данных",[
+["Проверка цифрового следа","Проверить собственные публичные профили → отметить лишние персональные сведения → составить список настроек приватности → подготовить план очистки.","PRIVACY"],
+["Аудит приватности профиля","Открыть настройки своего аккаунта → проверить видимость контактов, публикаций и списка друзей → сохранить рекомендации.","PRIVACY"],
+["Username Pattern Checker","Ввести собственный псевдоним → локально проверить формат и варианты написания → зафиксировать только добровольно опубликованные ссылки.","LOCAL"],
+["Контактная карточка организации","Внести официальные публичные контакты организации → отметить источник и дату → отделить подтверждённые данные от предположений.","OSINT"],
+["Удаление лишних данных","Составить перечень собственных страниц с избыточными данными → проверить доступные процедуры удаления → записать статусы запросов.","PRIVACY"]
+]],
+["Соцсети и мессенджеры","Публичные страницы",[
+["Аудит настроек соцсети","Проверить настройки своего аккаунта → включить двухфакторную защиту → ограничить поиск по номеру → проверить активные сессии.","PRIVACY"],
+["Проверка публичной публикации","Вставить текст своей публикации → проверить случайно раскрытые адреса, телефоны и метаданные → предложить безопасную редакцию.","LOCAL"],
+["План реагирования на фейк","Зафиксировать ссылку и дату → собрать первичные доказательства → отправить жалобу через официальный механизм платформы → сохранить номер обращения.","SAFETY"],
+["Памятка по мессенджерам","Проверить PIN, резервные копии, связанные устройства и приватность номера → составить список защитных настроек.","PRIVACY"]
+]],
+["Домены, сеть и угрозы","Инвентаризация и защита",[
+["DNS Record Planner","Указать свой домен → записать ожидаемые A, AAAA, MX, TXT и CNAME → сравнить с утверждённой конфигурацией → оформить изменения.","LOCAL"],
+["DNS Change History","Сопоставить собственные DNS-снимки → отметить новые и удалённые записи → проверить согласованность изменений → сохранить временную шкалу.","LOCAL"],
+["HTTP Header Review","Вставить заголовки ответа собственного сайта → проверить CSP, HSTS, nosniff и Referrer-Policy → сформировать рекомендации.","LOCAL"],
+["TLS Configuration Notes","Сверить отчёт TLS своего домена → проверить срок сертификата и поддерживаемые версии → составить план обновления.","LOCAL"],
+["IPv4 / IPv6 Parser","Ввести адрес → локально проверить формат → определить тип записи по префиксу → сохранить результат без сетевого запроса.","LOCAL"],
+["CIDR Calculator","Ввести собственную или учебную подсеть → вычислить сетевой адрес и диапазон локально → проверить адресный план.","LOCAL"],
+["ASN Notes","Ввести ASN из публичного отчёта → записать владельца и источник → отметить дату проверки и возможные изменения.","OSINT"],
+["Port Reference","Ввести номер порта → показать типичное назначение из локальной справки → напомнить, что номер не доказывает наличие сервиса.","LOCAL"],
+["Security Headers Checklist","Отметить защитные заголовки по отчёту → найти пробелы → составить приоритетный план исправлений.","DEFENSE"],
+["CVE Triage Notes","Внести CVE → сверить затронутые версии по бюллетеню производителя → оценить применимость к своим системам → записать меры.","DEFENSE"]
+]],
+["Гео и объекты","Публичные и собственные данные",[
+["Geo Data Checklist","Работать с открытыми картографическими данными → записать источник и дату → проверить точность → не публиковать частные координаты людей.","OSINT"],
+["EXIF Privacy Review","Проверить собственную копию изображения → найти GPS и временные метки → удалить чувствительные метаданные перед публикацией.","PRIVACY"],
+["Asset Inventory Map","Внести собственные серверы и сервисы → сгруппировать по средам → отметить владельца и критичность → экспортировать инвентарную заметку.","DEFENSE"],
+["Location Exposure Review","Проверить собственные публикации на геометки и фоновые ориентиры → отметить риски → составить правила безопасной публикации.","PRIVACY"]
+]],
+["Медиа и файлы","Локальный анализ",[
+["SHA-256 Calculator","Вставить текст → вычислить SHA-256 в браузере → сохранить контрольную сумму → сравнить её при повторной проверке.","LOCAL"],
+["Base64 Encoder / Decoder","Вставить строку → локально закодировать или декодировать Base64 → проверить результат → не отправлять секреты в сеть.","LOCAL"],
+["URL Decoder","Вставить URL-кодированную строку → декодировать локально → показать исходную и преобразованную версии.","LOCAL"],
+["JSON Inspector","Вставить JSON → проверить синтаксис → отформатировать структуру → показать ошибку с позицией.","LOCAL"],
+["JWT Structure Reader","Вставить тестовый JWT → локально разобрать header и payload → показать claims → подпись не проверяется, токены не сохраняются.","LOCAL"],
+["CSV Inspector","Вставить обезличенный CSV → проверить заголовки, пропуски и число столбцов → показать структуру таблицы.","LOCAL"],
+["Timestamp Converter","Ввести Unix timestamp → преобразовать в UTC локально → сравнить дату и время → сохранить обе формы.","LOCAL"],
+["File Name Inspector","Ввести имя файла → разобрать расширение и двойные расширения → показать безопасные рекомендации без запуска файла.","LOCAL"],
+["Text Diff","Вставить две версии текста через разделитель || → сравнить строки локально → показать добавления и удаления.","LOCAL"],
+["Image Metadata Checklist","Проверить метаданные своего файла локальным просмотрщиком → отметить геометки → подготовить безопасную копию.","PRIVACY"]
+]],
+["Реестры и бизнес","Проверка организаций",[
+["Company Research Plan","Указать организацию → сформировать перечень официальных реестров → сверить регистрационные сведения → записать дату и первоисточник.","OSINT"],
+["Domain Ownership Notes","Записать домен и публичные регистрационные данные → отметить скрытые поля → не пытаться устанавливать личность владельца по косвенным признакам.","OSINT"],
+["Public Document Review","Проверить публичный документ → извлечь название, дату и издателя → сверить с первоисточником → отметить ограничения.","OSINT"],
+["Vendor Risk Checklist","Оценить публичные сведения о поставщике → проверить контакты, политику безопасности и уведомления об инцидентах → записать вопросы для договора.","DEFENSE"]
+]],
+["Крипто и блокчейн","Публичные данные блокчейна",[
+["Transaction Format Reader","Вставить публичный tx hash → проверить формат строки → записать сеть и источник → не связывать адрес с человеком без подтверждения.","LOCAL"],
+["Wallet Safety Checklist","Проверить собственные настройки кошелька → резервную фразу хранить офлайн → включить защиту устройства → проверить адрес перед отправкой.","PRIVACY"],
+["Smart Contract Review Plan","Указать публичный контракт → найти аудит и исходный код → проверить дату аудита и область покрытия → составить список вопросов.","OSINT"],
+["Token Risk Notes","Собрать публичные сведения о токене → отметить ликвидность, права владельца и риски → не выдавать это за финансовую рекомендацию.","OSINT"]
+]],
+["Рабочая среда","Организация и автоматизация",[
+["Case Manager","Создать дело → определить цель и область → добавлять заметки, источники и временные метки → сформировать итоговый отчёт.","LOCAL"],
+["Incident Timeline","Вставить обезличенные события → отсортировать временные метки → выделить пробелы → подготовить хронологию реагирования.","DEFENSE"],
+["Evidence Hash Log","Внести SHA-256, имя копии и время → вести журнал передачи → сравнить контрольные суммы → не изменять оригинал.","LOCAL"],
+["Report Builder","Указать цель, методику, результаты, ограничения и рекомендации → собрать структурированный отчёт → проверить источники.","LOCAL"],
+["Finding Prioritizer","Описать защитную находку → оценить влияние и вероятность → назначить приоритет, владельца и срок исправления.","DEFENSE"]
+]],
+["Искусственный интеллект","Анализ и обучение",[
+["Prompt Safety Review","Вставить запрос → найти инструкции на раскрытие секретов и обход ограничений → предложить безопасную формулировку.","LOCAL"],
+["Text Classification","Вставить текст → выбрать локальную категорию вручную → объяснить признаки классификации → сохранить заметку.","LOCAL"],
+["Synthetic Data Generator","Задать поля → создать вымышленные тестовые записи → использовать их в учебных сценариях без персональных данных.","LOCAL"],
+["AI Output Fact Check","Разбить ответ модели на утверждения → отметить требующие источника → сверить с первичными документами → указать неопределённость.","OSINT"]
+]],
+["OPSEC и обучение","Личная и командная безопасность",[
+["OPSEC Checklist","Определить угрозы и активы → минимизировать раскрытие → разделить рабочие и личные профили → регулярно пересматривать настройки.","PRIVACY"],
+["Password Policy Builder","Задать требования → проверить длину, уникальность, MFA и менеджер паролей → оформить политику без проверки чужих паролей.","DEFENSE"],
+["MFA Readiness","Проверить поддержку MFA, резервных кодов и восстановления → отметить пробелы → составить план включения.","DEFENSE"],
+["Phishing Awareness Review","Вставить учебное письмо без активных ссылок → отметить признаки социальной инженерии → создать памятку для команды.","TRAINING"],
+["Security Awareness Quiz","Выбрать тему → пройти вопросы о фишинге, MFA и приватности → получить объяснение правильных ответов.","TRAINING"]
+]],
+["Код и репозитории","Безопасная разработка",[
+["Repository Hygiene","Проверить собственный репозиторий → найти случайно добавленные секреты в локальном списке → удалить их и заменить ключи → включить secret scanning.","DEFENSE"],
+["Dependency Inventory","Внести список зависимостей → записать версии и источники → проверить бюллетени безопасности → составить план обновлений.","DEFENSE"],
+["YARA Rule Reader","Вставить текст правила → разобрать meta, strings и condition → объяснить назначение → не запускать правило.","LOCAL"],
+["Regex Tester","Ввести регулярное выражение и тестовую строку → проверить совпадения локально → показать группы и ошибки.","LOCAL"],
+["HTML Escape Preview","Вставить тестовую строку → показать безопасное экранирование HTML → сравнить отображение как текста.","LOCAL"]
+]],
+["Лаборатория симуляций","Только визуальные учебные сценарии",[
+["DDoS Traffic Simulation","Выбрать виртуальную лабораторную цель → отобразить поток условных запросов и график нагрузки → включить rate limit и фильтрацию → сравнить показатели до и после. Реальные пакеты и запросы не отправляются.","SIMULATION"],
+["Phishing Awareness Simulator","Выбрать учебное письмо → подсветить подмену отправителя, срочность и подозрительные ссылки → показать безопасную памятку → оценить распознавание признаков. Письма не отправляются, пароли не собираются.","SIMULATION"],
+["Credential Theft Replay","Показать макет формы входа → отобразить концептуальную цепочку риска → остановить её защитным предупреждением → показать MFA и менеджер паролей. Сбор учётных данных отключён.","SIMULATION"],
+["Ransomware Incident Replay","Проиграть условное обнаружение → изолировать виртуальный узел → показать макет затронутых файлов → восстановить копию → сформировать отчёт. Файлы не шифруются.","SIMULATION"],
+["Malware Infection Timeline","Показать абстрактные этапы доставки, запуска и обнаружения → подсветить точки контроля → применить условную изоляцию. Вредоносный код не загружается и не запускается.","SIMULATION"],
+["Camera Intrusion Scenario","Показать макет камеры лаборатории → отметить ошибку конфигурации → закрыть доступ на схеме → предложить смену пароля и обновление прошивки. Подключения к камерам нет.","SIMULATION"],
+["Web Defacement Replay","Показать учебную страницу до и после условного изменения → запустить проверку целостности → восстановить исходный макет из контрольной копии. Реальные сайты не затрагиваются.","SIMULATION"],
+["Botnet Command Flow","Отобразить сеть условных узлов → показать схему командных связей → обнаружить аномальный beaconing → заблокировать канал на диаграмме. Сетевого обмена нет.","SIMULATION"],
+["Data Exfiltration Replay","Показать фиктивный поток метаданных → сработать DLP-правилу → остановить поток на схеме → сформировать отчёт. Файлы не читаются и не передаются.","SIMULATION"],
+["SQL Injection Learning Lab","Сравнить небезопасный и параметризованный запрос на синтетических строках → подсветить ошибку → показать prepared statement. К реальной БД подключения нет.","SIMULATION"],
+["XSS Attack Replay","Показать безвредную строку как текст → подсветить HTML-контекст → выполнить экранирование в предпросмотре. Скрипт не исполняется.","SIMULATION"],
+["Password Guessing Visualizer","Показать на синтетических примерах влияние длины и уникальности пароля → сравнить условные уровни стойкости → рекомендовать парольную фразу и MFA. Подбор не выполняется.","SIMULATION"],
+["Privilege Escalation Replay","Показать учебную матрицу ролей → отметить избыточное разрешение → применить принцип минимальных привилегий → сравнить исправленную схему. Системные права не меняются.","SIMULATION"],
+["Wiper Attack Replay","Показать условный сигнал разрушительного поведения → изолировать виртуальный узел → проверить резервную копию → восстановить учебное состояние. Данные не удаляются.","SIMULATION"],
+["Social Engineering Decision Tree","Проиграть учебный диалог с просьбой сообщить код → предложить варианты реакции → подсветить давление и срочность → показать правило независимой проверки. Звонки и сообщения не совершаются.","SIMULATION"],
+["Incident Command Center","Открыть синтетический инцидент → распределить учебные роли → пройти локализацию и восстановление → сформировать отчёт. Все события вымышлены.","SIMULATION"],
+["Fake Login Page Detector Lab","Показать макет поддельной страницы → отметить признаки копирования бренда и подозрительный домен → показать безопасную проверку адреса. Страницы не создаются и данные не собираются.","SIMULATION"],
+["Exploit Chain Visualizer","Собрать учебную цепочку из абстрактных этапов → отметить точки обнаружения → разорвать цепь защитными мерами. Эксплойты и команды не запускаются.","SIMULATION"],
+["Wireless Attack Awareness","Показать схему условной открытой Wi-Fi сети → визуализировать риск перехвата → включить защищённый профиль и VPN-политику. Радиопередачи и сканирования нет.","SIMULATION"],
+["Log Tampering Detection","Показать синтетические журналы → выделить пропуски и несогласованные временные метки → включить централизованное хранение и контроль целостности. Реальные логи не меняются.","SIMULATION"]
+]]
+];
+
+// Расширенный каталог: 22 направления × 48 самостоятельных модулей.
+// Все операции выполняются локально над текстом, который ввёл пользователь.
+const expansionDomains = [
+ {cat:'Анализ сетевых угроз',sub:'Сетевая телеметрия и выявление аномалий',focus:'сетевой телеметрии',tag:'DEFENSE',targets:['поток соединений','сводка DNS','журнал межсетевого экрана','таблица сетевых событий'],actions:['Baseline Builder','Anomaly Triage','Protocol Review','Traffic Summary','Allowlist Planner','Alert Correlator','Session Timeline','Outlier Review','Rule Quality Check','Evidence Formatter','Change Impact Review','Detection Coverage Map']},
+ {cat:'Защита веб-приложений',sub:'Безопасность HTTP и приложений',focus:'защиты веб-приложений',tag:'DEFENSE',targets:['HTTP-заголовки','маршруты приложения','политика CSP','журнал ошибок веб-сервера'],actions:['Header Auditor','CSP Planner','Cookie Policy Review','Route Inventory','Input Validation Checklist','Session Design Review','CORS Policy Check','Cache Safety Review','Error Disclosure Audit','Upload Control Plan','Auth Flow Review','Security Test Planner']},
+ {cat:'Криптография и ключи',sub:'Криптографическая гигиена',focus:'криптографической защиты',tag:'DEFENSE',targets:['политика ключей','описание сертификата','параметры шифрования','реестр криптографических активов'],actions:['Key Inventory','Rotation Planner','Certificate Tracker','Algorithm Policy Review','Entropy Checklist','Secret Storage Audit','Signature Workflow Review','Trust Chain Notes','Key Custody Log','Expiry Monitor Plan','Crypto Migration Map','Recovery Procedure Builder']},
+ {cat:'Анализ вредоносного ПО',sub:'Статический разбор и реагирование',focus:'анализа подозрительных файлов',tag:'TRAINING',targets:['описание файла','список индикаторов','текст отчёта антивируса','метаданные образца'],actions:['Indicator Extractor','Static Triage Sheet','Behavior Summary','YARA Explanation','Hash Reputation Log','Sandbox Report Reader','Persistence Checklist','Macro Risk Review','Script Obfuscation Notes','Family Comparison','IOC Confidence Scorer','Sample Chain of Custody']},
+ {cat:'Форензика и расследования',sub:'Цифровые доказательства',focus:'цифровой криминалистики',tag:'DEFENSE',targets:['журнал событий','временные метки','реестр доказательств','описание носителя'],actions:['Evidence Register','Timeline Builder','Hash Manifest Planner','Artifact Checklist','Log Gap Review','Clock Drift Analyzer','Acquisition Plan','Chain of Custody','Case Note Composer','Event Correlator','Finding Prioritizer','Report Quality Review']},
+ {cat:'Безопасность облака',sub:'Cloud posture и конфигурации',focus:'безопасности облачной среды',tag:'DEFENSE',targets:['перечень облачных ресурсов','политика IAM','правила хранилища','журнал конфигурационных изменений'],actions:['IAM Least Privilege','Bucket Exposure Review','Cloud Asset Inventory','Public Endpoint Audit','Snapshot Policy Check','Workload Boundary Review','Key Vault Checklist','Network Segmentation Plan','Cloud Log Coverage','Image Hygiene Review','Backup Readiness','Misconfiguration Triage']},
+ {cat:'Контейнеры и Kubernetes',sub:'Оркестрация и supply chain',focus:'безопасности контейнеров',tag:'DEFENSE',targets:['манифест Kubernetes','Dockerfile','перечень образов','политика namespace'],actions:['Pod Security Review','Image Provenance Notes','RBAC Matrix Builder','Secret Mount Audit','Network Policy Planner','Admission Policy Review','Registry Hygiene','Runtime Alert Triage','Namespace Isolation','Resource Limit Check','Helm Values Review','Cluster Upgrade Planner']},
+ {cat:'Безопасность кода',sub:'Secure coding и ревью',focus:'безопасной разработки',tag:'DEFENSE',targets:['фрагмент исходного кода','описание API','список зависимостей','правила проверки кода'],actions:['Input Boundary Review','Output Encoding Guide','Dependency Risk Triage','Code Review Checklist','Error Handling Audit','AuthZ Matrix Builder','Logging Safety Review','API Contract Review','Race Condition Notes','Memory Safety Checklist','Secret Scan Response','Patch Verification Plan']},
+ {cat:'OSINT организаций',sub:'Публичные корпоративные источники',focus:'исследования организаций по открытым источникам',tag:'OSINT',targets:['публичная карточка компании','официальная публикация','реестр юридических лиц','страница поставщика'],actions:['Source Reliability Score','Corporate Timeline','Registry Crosscheck','Public Statement Tracker','Vendor Profile Builder','Ownership Evidence Notes','Domain Footprint Inventory','Publication Archive','Fact Claim Matrix','Source Conflict Review','Research Scope Planner','Citation Pack Builder']},
+ {cat:'Приватность и цифровой след',sub:'Защита персональных данных',focus:'снижения цифрового следа',tag:'PRIVACY',targets:['собственный профиль','текст публикации','настройки приватности','перечень публичных страниц'],actions:['Exposure Checklist','Profile Privacy Audit','Metadata Removal Plan','Data Broker Opt-out Log','Account Visibility Review','Public Post Redactor','Retention Policy Notes','Consent Inventory','Breach Response Planner','Identity Separation Guide','Privacy Setting Tracker','Deletion Request Log']},
+ {cat:'Идентификация и доступ',sub:'IAM, MFA и жизненный цикл учётных записей',focus:'управления доступом',tag:'DEFENSE',targets:['матрица ролей','политика MFA','список учётных записей','процесс восстановления доступа'],actions:['Role Matrix Builder','MFA Coverage Review','Dormant Account Audit','Joiner Mover Leaver Plan','Recovery Flow Review','Session Lifetime Planner','Privilege Review','Access Recertification','Service Account Inventory','Password Policy Review','Federation Checklist','Break Glass Procedure']},
+ {cat:'Почтовая безопасность',sub:'Фишинг и защита домена',focus:'почтовой безопасности',tag:'DEFENSE',targets:['заголовки письма','политика SPF/DKIM/DMARC','учебное письмо','почтовый журнал'],actions:['Header Trace Reader','SPF Policy Planner','DKIM Selector Inventory','DMARC Alignment Review','Phishing Signal Checklist','Attachment Risk Triage','Mailbox Rule Audit','BEC Response Plan','Sender Trust Notes','Mail Gateway Coverage','URL Reputation Workflow','User Report Triage']},
+ {cat:'Мобильная безопасность',sub:'Android и iOS hardening',focus:'защиты мобильных устройств',tag:'DEFENSE',targets:['перечень разрешений приложения','политика мобильного устройства','сводка обновлений','профиль резервного копирования'],actions:['Permission Review','App Provenance Checklist','Device Encryption Audit','Update Cadence Planner','Backup Restore Test','Screen Lock Policy','Work Profile Review','Lost Device Playbook','Certificate Trust Review','Mobile Data Exposure','Sideloading Risk Notes','MDM Baseline Builder']},
+ {cat:'Реагирование на инциденты',sub:'Плейбуки SOC и восстановление',focus:'реагирования на инциденты',tag:'DEFENSE',targets:['описание инцидента','события SIEM','список затронутых активов','план восстановления'],actions:['Incident Severity Matrix','Triage Queue Builder','Containment Checklist','Eradication Plan','Recovery Gate Review','Stakeholder Update Draft','Lessons Learned','Escalation Matrix','Incident Clock','Evidence Preservation','Service Restoration Check','Postmortem Composer']},
+ {cat:'Мониторинг и SIEM',sub:'Логи, правила и корреляция',focus:'мониторинга событий безопасности',tag:'DEFENSE',targets:['пример записи лога','правило корреляции','схема источников событий','сводка оповещений'],actions:['Log Schema Mapper','Detection Rule Reviewer','Alert Noise Audit','Coverage Matrix','Event Normalizer','Time Window Planner','Dashboard Requirement','Retention Calculator Notes','Parser Test Plan','Correlation Hypothesis','Escalation Thresholds','Signal Quality Review']},
+ {cat:'Резервное копирование',sub:'Устойчивость и восстановление',focus:'резервного копирования',tag:'DEFENSE',targets:['политика резервирования','журнал тестового восстановления','перечень критичных систем','план аварийного восстановления'],actions:['RPO RTO Planner','Backup Coverage Map','Restore Drill Script','Immutable Copy Review','Offline Backup Checklist','Recovery Dependency Map','Retention Audit','Backup Access Review','Restore Evidence Log','Failover Readiness','Recovery Communication','Resilience Scorecard']},
+ {cat:'Управление уязвимостями',sub:'Приоритизация и исправления',focus:'управления уязвимостями',tag:'DEFENSE',targets:['карточка CVE','инвентаризация ПО','отчёт сканера','план обновления'],actions:['CVE Applicability Review','Patch Window Planner','Asset Exposure Matrix','Exploitability Context Notes','Compensating Control Review','Remediation SLA Tracker','False Positive Review','Version Evidence Log','Risk Acceptance Form','Patch Validation Plan','Vulnerability Trend Summary','Exception Expiry Tracker']},
+ {cat:'Безопасность API',sub:'API inventory и контроль доступа',focus:'безопасности API',tag:'DEFENSE',targets:['описание OpenAPI','список endpoint','политика токенов','пример ответа API'],actions:['Endpoint Inventory','Object Authorization Review','Rate Limit Policy','Token Scope Auditor','Schema Validation Plan','API Version Sunset','Error Response Review','Sensitive Field Mapper','Webhook Trust Checklist','Replay Protection Notes','API Logging Review','Contract Drift Detector']},
+ {cat:'Безопасность DNS и доменов',sub:'DNS hygiene и доменная защита',focus:'защиты доменной инфраструктуры',tag:'DEFENSE',targets:['записи DNS','список доменов организации','состояние сертификатов','политика регистрации доменов'],actions:['DNS Change Review','Dangling Record Checklist','CAA Policy Planner','DNSSEC Readiness','Domain Expiry Tracker','Subdomain Inventory','Registrar Lock Checklist','Certificate Transparency Review','MX Hygiene Audit','Zone Transfer Policy','Typosquat Monitoring Plan','Domain Ownership Evidence']},
+ {cat:'Обучение и Red Team',sub:'Безопасные упражнения и оценка защиты',focus:'контролируемых учений безопасности',tag:'TRAINING',targets:['план tabletop-учения','учебный сценарий','матрица защитных мер','итоги тренировки'],actions:['Tabletop Exercise Builder','Purple Team Objective Map','Detection Validation Plan','Attack Surface Workshop','Control Gap Exercise','Phishing Awareness Lesson','Incident Role Cards','Exercise Safety Brief','Assumption Tracker','Debrief Question Set','Control Evidence Matrix','Training Progress Review']},
+ {cat:'Безопасность данных',sub:'Классификация, DLP и хранение',focus:'защиты данных',tag:'PRIVACY',targets:['схема данных','политика хранения','пример обезличенного набора','правила DLP'],actions:['Data Classification','Sensitive Field Inventory','DLP Policy Planner','Retention Schedule','Anonymization Review','Pseudonymization Notes','Export Control Checklist','Data Flow Mapper','Access Purpose Review','Deletion Verification','Dataset Quality Audit','Privacy Impact Outline']},
+ {cat:'Риск и соответствие',sub:'Аудит, стандарты и контроль',focus:'управления киберрисками',tag:'DEFENSE',targets:['контрольная матрица','политика безопасности','отчёт аудита','реестр рисков'],actions:['Risk Register Builder','Control Mapping','Policy Gap Review','Audit Evidence Index','Exception Workflow','Supplier Assurance Review','Maturity Scorecard','Compliance Calendar','Ownership Matrix','Control Test Planner','Risk Treatment Notes','Executive Summary Builder']}
+];
+const targetCounts = expansionDomains.length * 48;
+for (const domain of expansionDomains) {
+ const tools=[];
+ for (let ai=0; ai<domain.actions.length; ai++) {
+  for (let ti=0; ti<domain.targets.length; ti++) {
+   const action=domain.actions[ai], target=domain.targets[ti];
+   const name=`${action} — ${target}`;
+   const scenario=`Цель: выполнить структурированный разбор ${target} в рамках направления ${domain.focus}.\n\n1. Подготовка. Укажи назначение материала, владельца системы, дату получения и разрешённую область проверки. Удали пароли, токены, персональные данные и другие секреты. Зафиксируй исходное состояние, чтобы результаты можно было воспроизвести.\n\n2. Инвентаризация. Раздели входные сведения на активы, настройки, события, зависимости и внешние источники. Отметь отсутствующие поля, противоречия и устаревшие записи. Не считай неподтверждённое предположение установленным фактом.\n\n3. Проверка. Примени критерии ${action}: сопоставь наблюдения с ожидаемым состоянием, найди отклонения, оцени влияние на ${domain.focus} и выдели критичные элементы. Для каждого вывода укажи подтверждающий фрагмент и степень уверенности.\n\n4. Обработка результата. Сгруппируй находки по приоритету, отдели технические причины от последствий, предложи безопасные корректирующие меры и назначь ответственного. Не выполняй сетевые действия и не изменяй чужие системы.\n\n5. Контроль качества. Проверь полноту данных, повторяемость шагов, ложные срабатывания и ограничения метода. Сохрани дату, версию правил и список источников.\n\n6. Итог. Подготовь краткое резюме, подробный журнал наблюдений, перечень рекомендаций и план повторной проверки. Результат должен быть понятен аналитику, инженеру и владельцу риска.`;
+   tools.push([name,scenario,domain.tag]);
+  }
+ }
+ data.push([domain.cat,domain.sub,tools]);
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let nodes=[],edges=[],nodeMap=new Map(),scale=.55,tx=0,ty=0,drag=false,lastX=0,lastY=0,selected=null;
+const expanded=new Set();
+const root={id:'root',name:'whoaim',type:'root',x:0,y:0,w:118,h:32,meta:'каталог инструментов'};
+nodes.push(root);
+
+const mobile=()=>window.matchMedia('(max-width:650px)').matches;
+const dims=()=>mobile()
+ ? {rootX:0,catX:158,subX:355,toolX:555,catW:172,subW:176,toolW:238,row:34,catGap:13,subGap:10}
+ : {rootX:0,catX:235,subX:485,toolX:735,catW:205,subW:215,toolW:300,row:36,catGap:15,subGap:12};
+
+function buildLayout(){
+ nodes=[root];edges=[];nodeMap=new Map();
+ const d=dims();
+ let cursor=0;
+ const categoryBlocks=[];
+ data.forEach((cat,ci)=>{
+  const tools=cat[2];
+  const parts=[tools.slice(0,Math.ceil(tools.length/2)),tools.slice(Math.ceil(tools.length/2))].filter(a=>a.length);
+  const catId='c'+ci;
+  const partBlocks=[];
+  let catHeight=d.row;
+  if(expanded.has(catId)){
+   parts.forEach((part,si)=>{
+    const subId=`s${ci}_${si}`;
+    const toolVisible=expanded.has(subId);
+    const height=toolVisible?Math.max(d.row,part.length*d.row):d.row;
+    partBlocks.push({part,si,subId,height});
+   });
+   catHeight=Math.max(d.row,partBlocks.reduce((sum,p)=>sum+p.height,0)+Math.max(0,partBlocks.length-1)*d.subGap);
+  }
+  categoryBlocks.push({cat,ci,catId,parts,partBlocks,height:catHeight});
+ });
+ const totalHeight=categoryBlocks.reduce((s,b)=>s+b.height,0)+Math.max(0,categoryBlocks.length-1)*d.catGap;
+ cursor=Math.max(30,(totalHeight-0)/2*-1);
+ categoryBlocks.forEach(block=>{
+  const cy=cursor+block.height/2;
+  block.centerY=cy;
+  const c={id:block.catId,name:block.cat[0],type:'category',x:d.catX,y:cy-d.row/2,w:d.catW,h:d.row,meta:block.cat[2].length+' инструментов',ci:block.ci};
+  nodes.push(c);edges.push(['root',c.id]);
+  if(expanded.has(block.catId)){
+   let subCursor=cursor;
+   block.partBlocks.forEach(pb=>{
+    const sy=subCursor+pb.height/2;
+    const s={id:pb.subId,name:block.cat[1]+' · '+(pb.si+1),type:'sub',x:d.subX,y:sy-d.row/2,w:d.subW,h:d.row-3,meta:pb.part.length+' модулей',ci:block.ci,si:pb.si};
+    nodes.push(s);edges.push([c.id,s.id]);
+    if(expanded.has(pb.subId)){
+     pb.part.forEach((tool,ti)=>{
+      const [name,scenario,tag]=tool;
+      const ty=subCursor+ti*d.row;
+      const n={id:`t${block.ci}_${pb.si}_${ti}`,name,type:'tool',x:d.toolX,y:ty,w:d.toolW,h:d.row-5,meta:tag==='SIMULATION'?'визуальная симуляция':'локальный / справочный модуль',ci:block.ci,si:pb.si,ti,scenario,tag};
+      nodes.push(n);edges.push([s.id,n.id]);
+     });
+    }
+    subCursor+=pb.height+d.subGap;
+   });
+  }
+  cursor+=block.height+d.catGap;
+ });
+ // Keep the root label exactly on the vertical midpoint of the first
+ // and last visible category nodes, even after branches are expanded.
+ root.x=d.rootX;
+ if(categoryBlocks.length){
+  const firstCenter=categoryBlocks[0].centerY;
+  const lastCenter=categoryBlocks[categoryBlocks.length-1].centerY;
+  root.y=(firstCenter+lastCenter)/2-d.row/2;
+ }else{root.y=-d.row/2;}
+}
+buildLayout();
+const nodeById=id=>nodeMap.get(id);
+function isVisible(n){return true;}
+function nodeMarkup(n){
+ let cls=n.type+(n.tag==='SIMULATION'?' sim':'');
+ let label=n.name.length>(n.type==='tool'?31:34)?n.name.slice(0,(n.type==='tool'?29:32))+'…':n.name;
+ const dot=n.type==='root'?3:n.type==='category'?2.6:2.2;
+ return `<g class="node ${cls}" data-id="${n.id}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${n.h}" rx="2"/><circle class="dot" cx="2" cy="${n.h/2}" r="${dot}"/><text x="11" y="${n.h/2+1}">${esc(label)}</text></g>`;
+}
+function curve(a,b){
+ const x1=a.x+a.w,y1=a.y+a.h/2,x2=b.x,y2=b.y+b.h/2;
+ const dx=Math.max(34,(x2-x1)*.52);
+ const bend=(y2-y1)*.08;
+ return `<path class="edge ${b.type==='tool'?'soft':''}" d="M${x1},${y1} C${x1+dx},${y1+bend} ${x2-dx},${y2-bend} ${x2},${y2}"/>`;
+}
+function render(){
+ buildLayout();
+ const svg=$('graph'),visible=nodes,visibleIds=new Set(visible.map(n=>n.id));
+ const minX=Math.min(...visible.map(n=>n.x)),maxX=Math.max(...visible.map(n=>n.x+n.w));
+ const minY=Math.min(...visible.map(n=>n.y)),maxY=Math.max(...visible.map(n=>n.y+n.h));
+ const pad=35,svgW=maxX-minX+pad*2,svgH=maxY-minY+pad*2;
+ svg.setAttribute('viewBox',`${minX-pad} ${minY-pad} ${svgW} ${svgH}`);
+ svg.setAttribute('width',svgW);svg.setAttribute('height',svgH);
+ svg.style.width=svgW+'px';svg.style.height=svgH+'px';
+ nodeMap=new Map(nodes.map(n=>[n.id,n]));
+ svg.innerHTML=edges.filter(([a,b])=>visibleIds.has(a)&&visibleIds.has(b)).map(([a,b])=>curve(nodeById(a),nodeById(b))).join('')+visible.map(nodeMarkup).join('');
+ svg.querySelectorAll('.node').forEach(el=>el.addEventListener('click',()=>selectNode(el.dataset.id)));
+ $('count').textContent=`${visible.filter(n=>n.type==='tool').length} из ${data.reduce((s,c)=>s+c[2].length,0)} модулей · ${data.length} разделов · ${expanded.size} веток`;
+ if(!window.__whoaimInitialized){fit();window.__whoaimInitialized=true;}else applyTransform();
+}
+function applyTransform(){ $('world').style.transform=`translate(${tx}px,${ty}px) scale(${scale})`; $('zoomlabel').textContent=Math.round(scale*100)+'%';}
+function zoom(factor,cx,cy){let rect=$('viewport').getBoundingClientRect(),px=cx??rect.width/2,py=cy??rect.height/2,ns=Math.max(.16,Math.min(2.2,scale*factor)),r=ns/scale;tx=px-(px-tx)*r;ty=py-(py-ty)*r;scale=ns;applyTransform();}
+
+function fit(){
+ const w=$('viewport').clientWidth,h=$('viewport').clientHeight;
+ const vis=nodes;
+ const minX=Math.min(...vis.map(n=>n.x)),maxX=Math.max(...vis.map(n=>n.x+n.w));
+ const minY=Math.min(...vis.map(n=>n.y)),maxY=Math.max(...vis.map(n=>n.y+n.h));
+ const spanX=maxX-minX+65,spanY=maxY-minY+65;
+ scale=Math.min(w/spanX,h/spanY,.95);
+ scale=Math.max(.22,Math.min(scale,.95));
+ tx=(w-spanX*scale)/2-minX*scale+32*scale;
+ ty=(h-spanY*scale)/2-minY*scale+32*scale;
+ applyTransform();
+}
+function home(){fit();}
+function selectNode(id){const n=nodeById(id);if(!n)return;selected=id;
+ if(n.type==='category'){if(expanded.has(id)){expanded.delete(id);for(const key of [...expanded])if(key.startsWith('s'+n.ci+'_'))expanded.delete(key);}else expanded.add(id);render();}
+ else if(n.type==='sub'){if(expanded.has(id))expanded.delete(id);else expanded.add(id);render();}
+ document.querySelectorAll('.node').forEach(x=>x.classList.toggle('selected',x.dataset.id===id));
+ if(n.type==='root'){ $('paneltitle').textContent='whoaim';$('panelkind').textContent='главный узел';$('paneltag').textContent='каталог';$('paneldesc').textContent='Ветки раскрываются постепенно. Нажми на категорию, чтобы показать подкатегории, затем на подкатегорию, чтобы увидеть инструменты.';$('scenario').textContent='1. Нажми на нужную категорию. 2. Нажми на появившуюся подкатегорию. 3. Выбери инструмент. Повторное нажатие на ветку сворачивает её.';$('inputarea').innerHTML='';$('output').textContent='Граф готов к работе.';}
+ else if(n.type==='category'||n.type==='sub'){ $('paneltitle').textContent=n.name;$('panelkind').textContent=n.type==='category'?'категория':'подкатегория';$('paneltag').textContent=n.meta;$('paneldesc').textContent='Ветка раскрыта на один уровень. Нажми на её дочерний узел, чтобы перейти глубже. Повторное нажатие свернёт ветку.';$('scenario').textContent=n.type==='category'?'Категория → подкатегории → инструменты. Нажми на подкатегорию, чтобы раскрыть список инструментов.':'Подкатегория → инструменты. Нажми на инструмент, чтобы открыть его сценарий.';$('inputarea').innerHTML='';$('output').textContent='Выбран узел: '+n.name;}
+ else{ $('paneltitle').textContent=n.name;$('panelkind').textContent='инструмент';$('paneltag').textContent=n.tag==='SIMULATION'?'ЛАБОРАТОРНЫЙ СЦЕНАРИЙ':n.tag==='OSINT'?'ОТКРЫТЫЕ ИСТОЧНИКИ':n.tag==='PRIVACY'?'ПРИВАТНОСТЬ':n.tag==='TRAINING'?'ОБУЧЕНИЕ':'ЗАЩИТНЫЙ АНАЛИЗ';$('paneldesc').textContent=n.tag==='SIMULATION'?'Сценарий моделирует риск на вымышленных данных. Реальные атаки, подключения и сбор данных не выполняются.':'Модуль предназначен для локальной обработки, планирования или защитного анализа.';$('scenario').textContent=n.scenario;$('inputarea').innerHTML=`<h3>Тестовое поле</h3><div class="field"><input id="demoInput" placeholder="Вставь обезличенный текст или журнал"><button id="runDemo">Запустить</button></div>`;$('output').textContent='Ожидание запуска сценария…';$('runDemo').addEventListener('click',()=>runDemo(n));}
+ $('panel').classList.add('open');
+}
+function runDemo(n){
+ const v=($('demoInput')?.value||'').trim();
+ const sample=v||'Материал не добавлен. Введи обезличенный текст, журнал или описание конфигурации.';
+ const lines=['[whoaim] '+n.name,'[MODE] локальная обработка введённого материала','[SCOPE] '+(n.tag||'LOCAL'),'[INPUT] '+(v?'получен текстовый материал':'пустой ввод — показан порядок проверки'),'[CHECK 01] объём: '+sample.length+' символов; строк: '+sample.split(/\n/).length,'[CHECK 02] URL: '+((sample.match(/https?:\/\/[^\s]+/gi)||[]).length)+'; email-подобные строки: '+((sample.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g)||[]).length),'[CHECK 03] IPv4-подобные записи: '+((sample.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)||[]).length),'[CHECK 04] маркеры секретов: '+(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|api[_-]?key|secret|password|token/i.test(sample)?'обнаружены совпадения по ключевым словам — проверь и удали секреты':'явных маркеров по простому шаблону не найдено'),'[ASSESSMENT] сопоставь найденные признаки с контекстом и первоисточником; совпадение шаблона не является доказательством инцидента.','[NEXT] проверь полноту, дату, владельца, достоверность и ограничения входных данных.','[RESULT] сформирован локальный отчёт; исходный материал не отправлялся.'];
+ if(n.tag==='SIMULATION')lines.push('[LAB] учебная последовательность: подготовка → наблюдение → обнаружение → защитная мера → повторная проверка.');
+ $('output').textContent=lines.join('\n');
+}
+$('search').addEventListener('input',e=>{
+ const q=e.target.value.trim().toLowerCase();
+ if(!q){render();return;}
+ const hits=[];
+ data.forEach((cat,ci)=>{
+  if(cat[0].toLowerCase().includes(q)){hits.push({kind:'category',ci});return;}
+  const split=Math.ceil(cat[2].length/2);
+  cat[2].forEach((tool,ti)=>{if(tool[0].toLowerCase().includes(q)||tool[1].toLowerCase().includes(q))hits.push({kind:'tool',ci,si:ti<split?0:1,ti});});
+ });
+ const visibleHits=hits.slice(0,80);
+ visibleHits.forEach(h=>{expanded.add('c'+h.ci);if(h.kind==='tool')expanded.add('s'+h.ci+'_'+h.si);});
+ render();
+ const keep=new Set(['root']);
+ visibleHits.forEach(h=>{keep.add('c'+h.ci);if(h.kind==='tool'){keep.add('s'+h.ci+'_'+h.si);keep.add(`t${h.ci}_${h.si}_${h.ti}`);}});
+ document.querySelectorAll('.node').forEach(el=>{el.style.opacity=keep.has(el.dataset.id)?'1':'.10';});
+ $('count').textContent=`${hits.length} совпадений · показано ${visibleHits.length} · ${data.reduce((s,c)=>s+c[2].length,0)} модулей всего`;
+});
+$('plus').onclick=()=>zoom(1.2);$('minus').onclick=()=>zoom(1/1.2);$('fit').onclick=fit;$('home').onclick=home;
+$('xpanel').onclick=$('closePanel').onclick=()=>$('panel').classList.remove('open');
+const vp=$('viewport');vp.addEventListener('pointerdown',e=>{if(e.target.closest('.node'))return;drag=true;lastX=e.clientX;lastY=e.clientY;vp.setPointerCapture(e.pointerId);vp.classList.add('dragging');});
+vp.addEventListener('pointermove',e=>{if(!drag)return;tx+=e.clientX-lastX;ty+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;applyTransform();});
+function stop(){drag=false;vp.classList.remove('dragging')}vp.addEventListener('pointerup',stop);vp.addEventListener('pointercancel',stop);
+vp.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1.08:1/1.08,e.clientX-vp.getBoundingClientRect().left,e.clientY-vp.getBoundingClientRect().top);},{passive:false});
+let pinch=0;vp.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});
+vp.addEventListener('touchmove',e=>{if(e.touches.length===2){let d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinch)zoom(d/pinch);pinch=d;}},{passive:true});
+render();window.addEventListener('resize',()=>{render();fit();});
+</script>
+</body></html>
